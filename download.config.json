@@ -1,0 +1,10 @@
+{
+  "tiktok": {
+    "endpoint": "https://SUA_API_TIKTOK/downloader",
+    "token": "SEU_TOKEN"
+  },
+  "pinterest": {
+    "endpoint": "https://SUA_API_PIN/downloader",
+    "token": "SEU_TOKEN"
+  }
+}
