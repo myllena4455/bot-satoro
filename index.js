@@ -1,4 +1,6 @@
-import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '@adiwajshing/baileys'
+import pkg from '@adiwajshing/baileys'
+const makeWASocket = pkg.default || pkg
+const { useMultiFileAuthState, fetchLatestBaileysVersion } = pkg
 import pino from 'pino'
 import fs from 'fs'
 import path from 'path'
@@ -21,6 +23,20 @@ const { state, saveCreds } = await useMultiFileAuthState('./auth')
 const { version } = await fetchLatestBaileysVersion()
 const sock = makeWASocket({ version, auth: state, printQRInTerminal: true, logger })
 sock.ev.on('creds.update', saveCreds)
+
+// Show QR in terminal if provided by Baileys
+sock.ev.on('connection.update', (update) => {
+  try{
+    const qr = update.qr
+    const status = update.connection
+    if (qr){
+      console.log('--- QR string (se aparecer): ---')
+      console.log(qr)
+      import('qrcode-terminal').then(qrterm => qrterm.generate(qr, { small: true }))
+    }
+    if (status === 'open') console.log('✅ Conectado ao WhatsApp!')
+  }catch(e){ console.error('connection.update handler error', e) }
+})
 
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)] }
 function toNumberJid(num){ return num.includes('@') ? num : `${num}@s.whatsapp.net` }
@@ -53,54 +69,44 @@ function canSendSticker(userId){ const now=Date.now(), last=lastStickerAt.get(us
 
 // ===== UI =====
 function menuText(){
-return `🟦🟦🟪🟪  𝗦𝗔𝗧𝗢𝗥𝗨 • 𝗠𝗘𝗡𝗨  🟪🟪🟦🟦
+return `  𝗦𝗔𝗧𝗢𝗥𝗨 • 𝗠𝗘𝗡𝗨 👑 
 
-🟩 𝗣𝗘𝗥𝗙𝗜𝗟 & 𝗡𝗢𝗠𝗘
+👤𝗣𝗘𝗥𝗙𝗜𝗟 & 𝗡𝗢𝗠𝗘
 • .perfil
 • .setname
 
-🟨 𝗘𝗖𝗢𝗡𝗢𝗠𝗜𝗔 & 𝗟𝗢𝗝𝗔
+💰𝗘𝗖𝗢𝗡𝗢𝗠𝗜𝗔 & 𝗟𝗢𝗝𝗔
 • .work  • .aposta  • .roubar
 • .loja  • .buy  • .inventario
 
-🟥 𝗥𝗔𝗡𝗞𝗦
+📜 𝗥𝗔𝗡𝗞𝗦
 • .rank  • .rankbanco  • .rankprof
 • .rankpau  • .rankgostosos
 
-🟦 𝗝𝗢𝗚𝗢𝗦
+🎮 𝗝𝗢𝗚𝗢𝗦
 • .rps  • .forca
 
-🟪 𝗠𝗜́𝗗𝗜𝗔
+📱 𝗠𝗜́𝗗𝗜𝗔
 • .audio  • .video  • .ajuda  • .menu
 
-🟫 𝗖𝗢𝗠𝗔𝗡𝗗𝗢𝗦 𝗣𝗘𝗥𝗦𝗢𝗡𝗔𝗟𝗜𝗭𝗔𝗗𝗢𝗦 (Admin)
+ 🛠️v 𝗖𝗢𝗠𝗔𝗡𝗗𝗢𝗦 𝗣𝗘𝗥𝗦𝗢𝗡𝗔𝗟𝗜𝗭𝗔𝗗𝗢𝗦 (Admin)
 • .pcadd  • .pclist  • .pcrmv
 
 🖼️ 𝗦𝗧𝗜𝗖𝗞𝗘𝗥𝗦
 • Envie uma IMAGEM — viro figurinha com seu nome
 
 ────────────────────────
-☎️ 𝗦𝘂𝗽𝗼𝗿𝘁𝗲 𝗧𝗲́𝗰𝗻𝗶𝗰𝗼: (coloque seu número)
-📧 𝗘𝗺𝗮𝗶𝗹 𝗼𝗳𝗶𝗰𝗶𝗮𝗹: (coloque seu email)
+☎️ 𝗦𝘂𝗽𝗼𝗿𝘁𝗲 𝗧𝗲́𝗰𝗻𝗶𝗰𝗼: (81 98601-0094)
+📧 𝗘𝗺𝗮𝗶𝗹 𝗼𝗳𝗶𝗰𝗶𝗮𝗹: (satoru.suporte24hs@gmail.com)
 
 “Errou de novo? Calma… meu limite de paciência é quase tão baixo quanto seu XP.” — 𝙎𝙖𝙩𝙤𝙧𝙪 😌`
 }
 
 async function sendMenu(chatId, quoted){
-  const img = fs.existsSync('./assets/menu.jpg') ? fs.readFileSync('./assets/menu.jpg') : null
-  const caption = menuText()
-  if (img) await sock.sendMessage(chatId, { image: img, caption }, { quoted })
-  else await sock.sendMessage(chatId, { text: caption }, { quoted })
-}
-
-async function sendReaction(chatId, quoted){
-  const pool = fs.readdirSync('./assets').filter(f=>/^reaction\d+\.jpg$/.test(f))
-  if (pool.length){
-    const img = fs.readFileSync(path.join('./assets', pick(pool)))
-    await sock.sendMessage(chatId, { image: img, caption: "Hein? Comando inventado. Tenta `.menu` antes de passar vergonha. — Satoru 😏" }, { quoted })
-  } else {
-    await sock.sendMessage(chatId, { text:"Hein? Comando inventado. Tenta `.menu` antes de passar vergonha. — Satoru 😏" }, { quoted })
-  }
+  const img = fs.existsSync('./assets/menu.jpg') ? fs.readFileSync('./assets/menu.jpg') : null
+  const caption = menuText()
+  if (img) await sock.sendMessage(chatId, { image: img, caption }, { quoted })
+  else await sock.sendMessage(chatId, { text: caption }, { quoted })
 }
 
 // ===== Audio helpers =====
@@ -454,8 +460,8 @@ sock.ev.on('messages.upsert', async ({ messages, type })=>{
     }
   }
 
-  // Unknown
-  await sendReaction(chatId, msg); await playAudioIfExists(chatId, '(3) Erro de Execução de Comandos.mp3')
+  // Unknown
+  await playAudioIfExists(chatId, '(3) Erro de Execução de Comandos.mp3')
 })
 
 console.log('✅ Satoru Bot FINAL pronto. Escaneie o QR.')
